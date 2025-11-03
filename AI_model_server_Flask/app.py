@@ -1,35 +1,57 @@
-from flask import Flask, request, jsonify
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from typing import List
 import pickle
 import numpy as np
-from flask_cors import CORS
+from fastapi.middleware.cors import CORSMiddleware
 
-app = Flask(__name__)
-CORS(app) 
+app = FastAPI()
+
+# Allow CORS from anywhere (adjust origins in production)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Load the saved model
 model_path = "best_rf_model (1).pkl"
-with open(model_path, "rb") as file:
-    model = pickle.load(file)
+model = None
+load_error = None
+try:
+    with open(model_path, "rb") as file:
+        model = pickle.load(file)
+except Exception as e:
+    load_error = str(e)
 
-@app.route('/')
-def home():
-    return "Welcome to the Random Forest Prediction API!"
 
-@app.route('/predict', methods=['POST'])
-def predict():
-    # Get JSON data from the request
-    data = request.get_json()
-    if not data:
-        return jsonify({"error": "No input data provided"}), 400
+class Features(BaseModel):
+    features: List[float]
+
+
+@app.get("/")
+def read_root():
+    return {"message": "Welcome to the Random Forest Prediction API!"}
+
+
+@app.post("/predict")
+def predict(payload: Features):
+    if model is None:
+        # Model failed to load at startup
+        raise HTTPException(status_code=500, detail=f"Model not loaded: {load_error}")
 
     try:
-        # Extract features from the request
-        features = np.array(data['features']).reshape(1, -1)
-        # Make a prediction
+        features = np.array(payload.features).reshape(1, -1)
         prediction = model.predict(features)
-        return jsonify({"prediction": prediction.tolist()})
+        return {"prediction": prediction.tolist()}
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
-if __name__ == '__main__':
-    app.run(debug=True)
+
+if __name__ == "__main__":
+    # Run with: python app.py  (this will start uvicorn)
+    import uvicorn
+
+    uvicorn.run("app:app", host="127.0.0.1", port=8000, reload=True)
