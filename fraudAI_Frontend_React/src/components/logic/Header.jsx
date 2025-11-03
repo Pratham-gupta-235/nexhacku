@@ -33,7 +33,7 @@ const Header = ({ user, onSignIn }) => {
                   </Sheet>
                   <div className="flex items-center md:hidden">
                     <CreditCard className="h-8 w-8 text-blue-400" />
-                    <span className="ml-2 text-xl font-bold text-blue-400">safepayAI</span>
+                    <span className="ml-2 text-xl font-bold text-blue-400">IntelliSecure</span>
                   </div>
                 </div>
                 <div className="flex items-center space-x-4">

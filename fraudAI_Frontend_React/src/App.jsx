@@ -9,17 +9,17 @@ const RouteTitleUpdater = () => {
 
   useEffect(() => {
     const routeToTitle = {
-      '/': 'SafePayAI - Home',
-      '/dashboard': 'SafePayAI - Dashboard',
-      '/send-money': 'SafePayAI - Send Money',
-      '/transactions': 'SafePayAI - Transactions',
-      '/statements': 'SafePayAI - Statements',
-      '/beneficiaries': 'SafePayAI - Beneficiaries',
-      '/settings': 'SafePayAI - Settings',
-      '/help-support': 'SafePayAI - Help & Support',
+      '/': 'IntelliSecure - Home',
+      '/dashboard': 'IntelliSecure - Dashboard',
+      '/send-money': 'IntelliSecure - Send Money',
+      '/transactions': 'IntelliSecure - Transactions',
+      '/statements': 'IntelliSecure - Statements',
+      '/beneficiaries': 'IntelliSecure - Beneficiaries',
+      '/settings': 'IntelliSecure - Settings',
+      '/help-support': 'IntelliSecure - Help & Support',
     };
 
-    const title = routeToTitle[location.pathname] || 'SafePayAI';
+    const title = routeToTitle[location.pathname] || 'IntelliSecure';
     document.title = title;
   }, [location]);
 

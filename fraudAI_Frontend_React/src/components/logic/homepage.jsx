@@ -5166,34 +5166,34 @@ import {
     const handleGoogleSignIn = async () => {
         const provider = new GoogleAuthProvider();
         try {
-        const result = await signInWithPopup(auth, provider);
-        const loggedInUser = result.user;
+            const result = await signInWithPopup(auth, provider);
+            const loggedInUser = result.user;
 
-        if (loggedInUser) {
-            setUser(loggedInUser);
-            const userRef = doc(db, "users", loggedInUser.uid);
-            const userDoc = await getDoc(userRef);
+            if (loggedInUser) {
+                setUser(loggedInUser);
+                const userRef = doc(db, "users", loggedInUser.uid);
+                const userDoc = await getDoc(userRef);
 
-            if (!userDoc.exists()) {
-            const generatedUPIId = generateUPIId(loggedInUser.displayName || "user");
-            const { user_friendly, model_processed } = getRandomTransaction();
-            await setDoc(userRef, {
-                uid: loggedInUser.uid,
-                name: loggedInUser.displayName,
-                email: loggedInUser.email,
-                photoURL: loggedInUser.photoURL,
-                upiId: generatedUPIId,
-                createdAt: serverTimestamp(),
-                transactionDetails: user_friendly, // Save user-friendly transaction details
-                modelData: model_processed
-            });
-            setUpiId(generatedUPIId);
-            } else {
-            setUpiId(userDoc.data().upiId);
+                if (!userDoc.exists()) {
+                    const generatedUPIId = generateUPIId(loggedInUser.displayName || "user");
+                    const { user_friendly, model_processed } = getRandomTransaction();
+                    await setDoc(userRef, {
+                        uid: loggedInUser.uid,
+                        name: loggedInUser.displayName,
+                        email: loggedInUser.email,
+                        photoURL: loggedInUser.photoURL,
+                        upiId: generatedUPIId,
+                        createdAt: serverTimestamp(),
+                        transactionDetails: user_friendly, // Save user-friendly transaction details
+                        modelData: model_processed
+                    });
+                    setUpiId(generatedUPIId);
+                } else {
+                    setUpiId(userDoc.data().upiId);
+                }
             }
-        }
         } catch (error) {
-        console.error("Google Sign-In Error:", error);
+            console.error("Google Sign-In Error:", error);
         }
     };
 
@@ -5249,7 +5249,7 @@ import {
               transition={{ delay: 0.2 }}
               className="flex flex-col items-center justify-center min-h-screen"
             >
-              <h1 className="text-4xl font-bold mb-8 text-center">Welcome to SafePay AI</h1>
+              <h1 className="text-4xl font-bold mb-8 text-center">Welcome to IntelliSecure</h1>
               <Button
                 onClick={handleGoogleSignIn}
                 className="px-8 py-4 bg-blue-500 text-white font-semibold rounded-lg shadow-lg hover:bg-blue-600 transition-all duration-300"

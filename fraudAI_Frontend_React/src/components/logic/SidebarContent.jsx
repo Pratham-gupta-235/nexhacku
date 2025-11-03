@@ -34,7 +34,7 @@ export default function SidebarContent() {
       <div className="p-6">
         <div className="flex items-center mb-8">
           <CreditCard className="h-8 w-8 text-blue-400" />
-          <span className="ml-2 text-xl font-bold text-blue-400">PaySafeAI</span>
+          <span className="ml-2 text-xl font-bold text-blue-400">IntelliSecure</span>
         </div>
         <div className="relative mb-6">
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-white/50" />
