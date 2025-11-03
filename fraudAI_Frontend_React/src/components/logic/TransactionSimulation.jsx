@@ -21,6 +21,8 @@ const TransactionSimulation = ({ upiId, amount, remarks, senderUPI, onClose }) =
         recipientUPI: upiId,
         senderUPI: senderUPI,
         remarks: remarks,
+        type: 'outgoing',
+        status: 'Completed',
         createdAt: serverTimestamp(),
       });
   

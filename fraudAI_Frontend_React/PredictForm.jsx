@@ -1,11 +1,19 @@
 import React, { useState } from "react";
 import axios from "axios";
+import { motion } from "framer-motion";
+import { Upload, Download, AlertCircle, CheckCircle2, XCircle, FileJson, Loader2 } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import Header from "./src/components/logic/Header";
+import SidebarContent from "./src/components/logic/SidebarContent";
 
 const PredictForm = () => {
   const [jsonFile, setJsonFile] = useState(null);
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [user, setUser] = useState(null);
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
@@ -132,199 +140,294 @@ const PredictForm = () => {
   };
 
   return (
-    <div style={{ padding: "20px", maxWidth: "800px", margin: "0 auto" }}>
-      <h2>Fraud Detection - Batch Prediction</h2>
-      
-      <div style={{ marginBottom: "20px", padding: "15px", backgroundColor: "#f0f8ff", borderRadius: "8px" }}>
-        <h3>JSON Format Requirements:</h3>
-        <p><strong>Option 1 - Single Transaction:</strong></p>
-        <pre style={{ backgroundColor: "#f5f5f5", padding: "10px", borderRadius: "4px", fontSize: "12px" }}>
+    <div className="flex min-h-screen bg-gray-900 text-gray-100">
+      {/* Sidebar */}
+      <aside className="hidden md:flex flex-col w-72 min-h-screen border-r border-gray-800 bg-gray-900">
+        <SidebarContent />
+      </aside>
+
+      {/* Main Content */}
+      <main className="flex-1 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+        {/* Header */}
+        <Header user={user} />
+
+        {/* Fraud Detection Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="p-6 space-y-6 max-w-6xl mx-auto"
+        >
+          {/* Page Title */}
+          <div className="mb-6">
+            <h1 className="text-3xl font-bold text-white mb-2">AI Fraud Detection</h1>
+            <p className="text-gray-400">Upload transaction data for batch fraud analysis</p>
+          </div>
+
+          {/* Upload Card */}
+          <Card className="bg-gray-800 border-gray-700 shadow-lg">
+            <CardHeader>
+              <CardTitle className="text-xl font-bold text-gray-100 flex items-center">
+                <FileJson className="mr-2 h-6 w-6 text-blue-400" />
+                Upload Transaction Data
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* JSON Format Instructions */}
+              <Card className="bg-gray-700 border-gray-600">
+                <CardContent className="pt-6">
+                  <h3 className="text-lg font-semibold text-white mb-3">JSON Format Requirements:</h3>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-sm font-medium text-blue-400 mb-2">Option 1 - Single Transaction:</p>
+                      <pre className="bg-gray-900 text-gray-300 p-3 rounded-md text-xs overflow-x-auto border border-gray-600">
 {`{
   "features": [0.008, 0.0, 1.0, 0.0, 1.0, 0.189, 
                0.290, 0.875, 0.033, 0.0, 0.0, 0.0, 
                0.556, 0.158, 0.0, 0.0, 0.0, 0.0, 
                0.0, 1.0, 0.0, 0.0]
 }`}
-        </pre>
-        
-        <p><strong>Option 2 - Multiple Transactions:</strong></p>
-        <pre style={{ backgroundColor: "#f5f5f5", padding: "10px", borderRadius: "4px", fontSize: "12px" }}>
+                      </pre>
+                    </div>
+                    
+                    <div>
+                      <p className="text-sm font-medium text-blue-400 mb-2">Option 2 - Multiple Transactions:</p>
+                      <pre className="bg-gray-900 text-gray-300 p-3 rounded-md text-xs overflow-x-auto border border-gray-600">
 {`{
   "features": [
     [0.008, 0.0, 1.0, ..., 0.0],
     [0.55, 1.0, 0.60, ..., 1.0]
   ]
 }`}
-        </pre>
-        
-        <p><strong>Option 3 - Array Format:</strong></p>
-        <pre style={{ backgroundColor: "#f5f5f5", padding: "10px", borderRadius: "4px", fontSize: "12px" }}>
+                      </pre>
+                    </div>
+                    
+                    <div>
+                      <p className="text-sm font-medium text-blue-400 mb-2">Option 3 - Array Format:</p>
+                      <pre className="bg-gray-900 text-gray-300 p-3 rounded-md text-xs overflow-x-auto border border-gray-600">
 {`[
   {"features": [0.008, 0.0, 1.0, ..., 0.0]},
   {"features": [0.55, 1.0, 0.60, ..., 1.0]}
 ]`}
-        </pre>
-        
-        <ul style={{ marginTop: "10px" }}>
-          <li>Each transaction must have exactly <strong>22 numerical values</strong></li>
-          <li>Values should be normalized between 0 and 1</li>
-        </ul>
-      </div>
+                      </pre>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-4 p-3 bg-blue-500 bg-opacity-10 border border-blue-500 border-opacity-30 rounded-md">
+                    <ul className="text-sm text-gray-300 space-y-1">
+                      <li className="flex items-start">
+                        <CheckCircle2 className="h-4 w-4 text-blue-400 mr-2 mt-0.5 flex-shrink-0" />
+                        Each transaction must have exactly <strong className="text-white mx-1">22 numerical values</strong>
+                      </li>
+                      <li className="flex items-start">
+                        <CheckCircle2 className="h-4 w-4 text-blue-400 mr-2 mt-0.5 flex-shrink-0" />
+                        Values should be normalized between 0 and 1
+                      </li>
+                    </ul>
+                  </div>
+                </CardContent>
+              </Card>
 
-      <div style={{ marginBottom: "20px" }}>
-        <label
-          htmlFor="json-upload"
-          style={{
-            display: "inline-block",
-            padding: "10px 20px",
-            backgroundColor: "#4CAF50",
-            color: "white",
-            borderRadius: "5px",
-            cursor: "pointer",
-            fontSize: "16px",
-          }}
-        >
-          {jsonFile ? jsonFile.name : "Choose JSON File"}
-        </label>
-        <input
-          id="json-upload"
-          type="file"
-          accept=".json,application/json"
-          onChange={handleFileChange}
-          style={{ display: "none" }}
-        />
-      </div>
+              {/* File Upload Section */}
+              <div className="space-y-3">
+                <label
+                  htmlFor="json-upload"
+                  className="flex items-center justify-center w-full h-32 border-2 border-dashed border-gray-600 rounded-lg cursor-pointer hover:border-blue-500 hover:bg-gray-700 transition-all duration-300"
+                >
+                  <div className="text-center">
+                    <Upload className="mx-auto h-10 w-10 text-gray-400 mb-2" />
+                    {jsonFile ? (
+                      <div>
+                        <p className="text-sm font-medium text-blue-400">{jsonFile.name}</p>
+                        <p className="text-xs text-gray-500 mt-1">Click to change file</p>
+                      </div>
+                    ) : (
+                      <div>
+                        <p className="text-sm font-medium text-gray-300">Choose JSON File</p>
+                        <p className="text-xs text-gray-500 mt-1">or drag and drop</p>
+                      </div>
+                    )}
+                  </div>
+                </label>
+                <input
+                  id="json-upload"
+                  type="file"
+                  accept=".json,application/json"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+              </div>
 
-      <button
-        onClick={handlePredict}
-        disabled={!jsonFile || loading}
-        style={{
-          padding: "12px 24px",
-          backgroundColor: loading ? "#ccc" : "#2196F3",
-          color: "white",
-          border: "none",
-          borderRadius: "5px",
-          fontSize: "16px",
-          cursor: loading ? "not-allowed" : "pointer",
-          marginRight: "10px",
-        }}
-      >
-        {loading ? "Processing..." : "Predict"}
-      </button>
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                <Button
+                  onClick={handlePredict}
+                  disabled={!jsonFile || loading}
+                  className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="mr-2 h-5 w-5" />
+                      Analyze Transactions
+                    </>
+                  )}
+                </Button>
 
-      {results.length > 0 && (
-        <button
-          onClick={downloadResults}
-          style={{
-            padding: "12px 24px",
-            backgroundColor: "#FF9800",
-            color: "white",
-            border: "none",
-            borderRadius: "5px",
-            fontSize: "16px",
-            cursor: "pointer",
-          }}
-        >
-          Download Results (JSON)
-        </button>
-      )}
-
-      {error && (
-        <div
-          style={{
-            marginTop: "20px",
-            padding: "15px",
-            backgroundColor: "#ffebee",
-            borderLeft: "4px solid #f44336",
-            borderRadius: "4px",
-          }}
-        >
-          <strong>Error:</strong> {error}
-        </div>
-      )}
-
-      {results.length > 0 && (
-        <div style={{ marginTop: "30px" }}>
-          <h3>Prediction Results ({results.length} transactions)</h3>
-          <div
-            style={{
-              backgroundColor: "#f5f5f5",
-              padding: "10px",
-              borderRadius: "5px",
-              marginBottom: "15px",
-            }}
-          >
-            <strong>Summary:</strong>
-            <ul>
-              <li>
-                Fraudulent: {results.filter((r) => r.success && r.prediction === 1).length}
-              </li>
-              <li>
-                Legitimate: {results.filter((r) => r.success && r.prediction === 0).length}
-              </li>
-              <li>Errors: {results.filter((r) => !r.success).length}</li>
-            </ul>
-          </div>
-
-          <div style={{ maxHeight: "400px", overflowY: "auto" }}>
-            <table
-              style={{
-                width: "100%",
-                borderCollapse: "collapse",
-                backgroundColor: "white",
-              }}
-            >
-              <thead>
-                <tr style={{ backgroundColor: "#2196F3", color: "white" }}>
-                  <th style={{ padding: "12px", border: "1px solid #ddd" }}>Row</th>
-                  <th style={{ padding: "12px", border: "1px solid #ddd" }}>Prediction</th>
-                  <th style={{ padding: "12px", border: "1px solid #ddd" }}>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {results.map((result) => (
-                  <tr
-                    key={result.row}
-                    style={{
-                      backgroundColor: result.success
-                        ? result.prediction === 1
-                          ? "#ffebee"
-                          : "#e8f5e9"
-                        : "#fff3e0",
-                    }}
+                {results.length > 0 && (
+                  <Button
+                    onClick={downloadResults}
+                    className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-300"
                   >
-                    <td style={{ padding: "10px", border: "1px solid #ddd" }}>
-                      {result.row}
-                    </td>
-                    <td
-                      style={{
-                        padding: "10px",
-                        border: "1px solid #ddd",
-                        fontWeight: "bold",
-                      }}
-                    >
-                      {result.success ? (
-                        <span
-                          style={{
-                            color: result.prediction === 1 ? "#d32f2f" : "#388e3c",
-                          }}
-                        >
-                          {result.prediction === 1 ? "⚠️ FRAUD" : "✅ LEGITIMATE"}
-                        </span>
-                      ) : (
-                        <span style={{ color: "#f57c00" }}>Error</span>
-                      )}
-                    </td>
-                    <td style={{ padding: "10px", border: "1px solid #ddd" }}>
-                      {result.success ? "Success" : result.error}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+                    <Download className="mr-2 h-5 w-5" />
+                    Download Results
+                  </Button>
+                )}
+              </div>
+
+              {/* Error Message */}
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex items-start p-4 bg-red-500 bg-opacity-10 border border-red-500 border-opacity-30 rounded-lg"
+                >
+                  <AlertCircle className="h-5 w-5 text-red-400 mr-3 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-red-400">Error</p>
+                    <p className="text-sm text-gray-300 mt-1">{error}</p>
+                  </div>
+                </motion.div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Results Section */}
+          {results.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+            >
+              <Card className="bg-gray-800 border-gray-700 shadow-lg">
+                <CardHeader>
+                  <CardTitle className="text-xl font-bold text-gray-100">
+                    Analysis Results ({results.length} transactions)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Summary Stats */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <Card className="bg-red-500 bg-opacity-10 border-red-500 border-opacity-30">
+                      <CardContent className="pt-6">
+                        <div className="text-center">
+                          <XCircle className="h-10 w-10 text-red-400 mx-auto mb-2" />
+                          <p className="text-3xl font-bold text-red-400">
+                            {results.filter((r) => r.success && r.prediction === 1).length}
+                          </p>
+                          <p className="text-sm text-gray-400 mt-1">Fraudulent</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="bg-green-500 bg-opacity-10 border-green-500 border-opacity-30">
+                      <CardContent className="pt-6">
+                        <div className="text-center">
+                          <CheckCircle2 className="h-10 w-10 text-green-400 mx-auto mb-2" />
+                          <p className="text-3xl font-bold text-green-400">
+                            {results.filter((r) => r.success && r.prediction === 0).length}
+                          </p>
+                          <p className="text-sm text-gray-400 mt-1">Legitimate</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="bg-yellow-500 bg-opacity-10 border-yellow-500 border-opacity-30">
+                      <CardContent className="pt-6">
+                        <div className="text-center">
+                          <AlertCircle className="h-10 w-10 text-yellow-400 mx-auto mb-2" />
+                          <p className="text-3xl font-bold text-yellow-400">
+                            {results.filter((r) => !r.success).length}
+                          </p>
+                          <p className="text-sm text-gray-400 mt-1">Errors</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Results Table */}
+                  <div className="overflow-x-auto rounded-lg border border-gray-700">
+                    <div className="max-h-96 overflow-y-auto">
+                      <table className="w-full">
+                        <thead className="bg-gray-700 sticky top-0">
+                          <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                              Row
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                              Prediction
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                              Status
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-700">
+                          {results.map((result) => (
+                            <motion.tr
+                              key={result.row}
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              transition={{ duration: 0.3 }}
+                              className={`${
+                                result.success
+                                  ? result.prediction === 1
+                                    ? "bg-red-500 bg-opacity-5 hover:bg-opacity-10"
+                                    : "bg-green-500 bg-opacity-5 hover:bg-opacity-10"
+                                  : "bg-yellow-500 bg-opacity-5 hover:bg-opacity-10"
+                              } transition-colors duration-200`}
+                            >
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                                #{result.row}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                {result.success ? (
+                                  <Badge
+                                    variant={result.prediction === 1 ? "destructive" : "success"}
+                                    className={`${
+                                      result.prediction === 1
+                                        ? "bg-red-500 hover:bg-red-600"
+                                        : "bg-green-500 hover:bg-green-600"
+                                    } text-white font-semibold`}
+                                  >
+                                    {result.prediction === 1 ? "⚠️ FRAUD" : "✅ LEGITIMATE"}
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="warning" className="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold">
+                                    ❌ ERROR
+                                  </Badge>
+                                )}
+                              </td>
+                              <td className="px-6 py-4 text-sm text-gray-400">
+                                {result.success ? "Success" : result.error}
+                              </td>
+                            </motion.tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+        </motion.div>
+      </main>
     </div>
   );
 };
