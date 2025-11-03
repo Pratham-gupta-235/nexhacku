@@ -8,10 +8,11 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import SidebarContent from './SidebarContent';
 import { auth, db } from "./firebase.js";
-import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc, setDoc, serverTimestamp, collection, query, where, getDocs } from "firebase/firestore";
 import { cn } from "@/lib/utils";
 import TransactionSimulation from '../logic/TransactionSimulation'
+import { useNavigate } from 'react-router-dom';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -25,6 +26,7 @@ import {
 
 
     export default function Homepage() {
+        const navigate = useNavigate();
         const [showPopup, setShowPopup] = useState(false); // State for managing the pop-up visibility
         const [transactionData, setTransactionData] = useState([]); 
         const [remarks,setRemarks]=useState()
@@ -5061,6 +5063,7 @@ import {
     const [recipientUpiId, setRecipientUpiId] = useState('')
     const [verificationStatus, setVerificationStatus] = useState(null); 
     const [isAlertOpen, setIsAlertOpen] = useState(false)
+    const [isVerifying, setIsVerifying] = useState(false);
     
     const [amount, setAmount] = useState(10000); 
     
@@ -5087,11 +5090,16 @@ import {
     
 
     const handleVerifyUPI = async () => {
-        if (!upiId.trim()) {
+        if (!recipientUpiId.trim()) {
           setVerificationStatus("invalid");
+          console.log("Recipient UPI ID is empty");
           return;
         }
       
+        setIsVerifying(true);
+        setVerificationStatus(null);
+        console.log("Verifying UPI ID:", recipientUpiId);
+        
         try {
           // Reference the "users" collection
           const usersRef = collection(db, "users");
@@ -5102,13 +5110,24 @@ import {
       
           // Check if a matching document was found
           if (querySnapshot.empty) {
+            console.log("No user found with UPI ID:", recipientUpiId);
             setVerificationStatus("invalid");
+            setIsVerifying(false);
             return;
           }
       
+          console.log("User found! Checking fraud status...");
+          
           // Get the first document from the query results
           const userDoc = querySnapshot.docs[0]; // Assuming UPI ID is unique
           const modelData = userDoc.data().modelData;
+      
+          if (!modelData) {
+            console.log("No model data available for this user");
+            setVerificationStatus("valid"); // Default to valid if no model data
+            setIsVerifying(false);
+            return;
+          }
       
           // Ensure features are in the correct order
           const features = [
@@ -5148,6 +5167,7 @@ import {
           });
       
           const result = await response.json();
+          console.log("Prediction result:", result);
       
           if ( result.prediction[0] === 1) {
             setVerificationStatus("fraud");
@@ -5157,6 +5177,8 @@ import {
         } catch (error) {
           console.error("Error verifying UPI ID:", error);
           setVerificationStatus("invalid");
+        } finally {
+          setIsVerifying(false);
         }
       };
       
@@ -5164,75 +5186,29 @@ import {
       
 
     const handleGoogleSignIn = async () => {
-        const provider = new GoogleAuthProvider();
-        try {
-            const result = await signInWithPopup(auth, provider);
-            const loggedInUser = result.user;
-
-            if (loggedInUser) {
-                setUser(loggedInUser);
-                const userRef = doc(db, "users", loggedInUser.uid);
-                const userDoc = await getDoc(userRef);
-
-                if (!userDoc.exists()) {
-                    const generatedUPIId = generateUPIId(loggedInUser.displayName || "user");
-                    const { user_friendly, model_processed } = getRandomTransaction();
-                    await setDoc(userRef, {
-                        uid: loggedInUser.uid,
-                        name: loggedInUser.displayName,
-                        email: loggedInUser.email,
-                        photoURL: loggedInUser.photoURL,
-                        upiId: generatedUPIId,
-                        createdAt: serverTimestamp(),
-                        transactionDetails: user_friendly, // Save user-friendly transaction details
-                        modelData: model_processed
-                    });
-                    setUpiId(generatedUPIId);
-                } else {
-                    setUpiId(userDoc.data().upiId);
-                }
-            }
-        } catch (error) {
-            console.error("Google Sign-In Error:", error);
-        }
+        // Navigate to login page instead of signing in directly
+        navigate('/login');
     };
 
-
-
     useEffect(() => {
-        const checkUser = async () => {
-        const currentUser = auth.currentUser;
-        if (currentUser) {
-            setUser(currentUser);
-            const userRef = doc(db, "users", currentUser.uid);
-            const userDoc = await getDoc(userRef);
-            if (userDoc.exists()) {
-            setUpiId(userDoc.data().upiId);
-            }
-        }
-        };
-        checkUser();
-    }, []);
-
-    useEffect(() => {
-        const checkUser = async () => {
-            const currentUser = auth.currentUser; // Get the current user
+        const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
             if (currentUser) {
-                setUser(currentUser); // Set user state
-                const userRef = doc(db, "users", currentUser.uid); // Reference to the user's document
-                const userDoc = await getDoc(userRef); // Fetch the user document
+                setUser(currentUser);
+                const userRef = doc(db, "users", currentUser.uid);
+                const userDoc = await getDoc(userRef);
                 if (userDoc.exists()) {
-                    const userData = userDoc.data(); // Get the user data
-                    // Assuming userData.upiId is the UPI ID of the logged-in user
-                    setUser((prev) => ({ ...prev, upiId: userData.upiId })); // Set UPI ID in user state
+                    const userData = userDoc.data();
+                    setUpiId(userData.upiId);
                 } else {
                     console.error("User document does not exist");
                 }
             } else {
+                setUser(null);
+                setUpiId("");
                 console.log("No user is currently logged in");
             }
-        };
-        checkUser();
+        });
+        return () => unsubscribe();
     }, []);
 
     return (
@@ -5303,16 +5279,28 @@ import {
                                 setVerificationStatus(null);
                               }}
                               className="flex-grow bg-white/5 border-white/10 text-white focus:ring-2 focus:ring-blue-500"
+                              placeholder="Enter recipient UPI ID"
                             />
                             <Button
                               onClick={handleVerifyUPI}
-                              className="bg-blue-500 hover:bg-blue-600 text-white transition-colors duration-300"
+                              disabled={isVerifying || !recipientUpiId.trim()}
+                              className="bg-blue-500 hover:bg-blue-600 text-white transition-colors duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                              Verify
+                              {isVerifying ? (
+                                <span className="flex items-center">
+                                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                  </svg>
+                                  Verifying...
+                                </span>
+                              ) : (
+                                "Verify"
+                              )}
                             </Button>
                           </div>
                           <AnimatePresence mode="wait">
-        {verificationStatus !== "idle" && (
+        {verificationStatus && verificationStatus !== null && (
           <motion.div
             key={verificationStatus}
             initial={{ opacity: 0, y: -10 }}
@@ -5321,6 +5309,8 @@ import {
             className={`p-4 rounded-lg ${
               verificationStatus === "valid"
                 ? "bg-green-100 text-green-800"
+                : verificationStatus === "fraud"
+                ? "bg-yellow-100 text-yellow-800"
                 : "bg-red-100 text-red-800"
             }`}
           >

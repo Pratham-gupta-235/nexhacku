@@ -18,8 +18,8 @@ const getRandomTransaction = () => {
   return mappedTransactions[randomIndex];
 };
 
-// Function to handle Google Sign-In
-export const handleGoogleSignIn = async () => {
+// Function to handle Google Sign-In for regular users
+export const handleGoogleSignIn = async (accountType = 'user') => {
   const provider = new GoogleAuthProvider();
 
   try {
@@ -37,26 +37,38 @@ export const handleGoogleSignIn = async () => {
         // Get a random transaction from the mapped transactions
         const { user_friendly, model_processed } = getRandomTransaction();
 
-        await setDoc(userRef, {
+        const userData = {
           uid: user.uid,
           name: user.displayName,
           email: user.email,
           photoURL: user.photoURL,
           upiId: upiId,
+          accountType: accountType, // 'user' or 'business'
           createdAt: serverTimestamp(),
           transactionDetails: user_friendly,       // Save user-friendly transaction details
           modelData: model_processed               // Save model-processed transaction details
-        });
+        };
 
-        console.log("New user created with UPI ID:", upiId);
+        // Add business-specific fields if business account
+        if (accountType === 'business') {
+          userData.businessName = user.displayName; // Can be customized later
+          userData.businessCategory = 'General'; // Default category
+        }
+
+        await setDoc(userRef, userData);
+
+        console.log(`New ${accountType} account created with UPI ID:`, upiId);
         console.log("Assigned Transaction Details:", user_friendly);
       } else {
         // Returning user
         const userData = userDoc.data();
         console.log("User already exists:", userData);
       }
+      
+      return { success: true, accountType: userDoc.exists() ? userDoc.data().accountType : accountType };
     }
   } catch (error) {
     console.error("Google Sign-In Error:", error);
+    return { success: false, error };
   }
 };

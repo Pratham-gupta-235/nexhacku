@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { auth, db } from "./firebase.js";
-import { signOut } from "firebase/auth";
+import { signOut, onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
 import Header from "./Header.jsx";
 import SidebarContent from "./SidebarContent";
@@ -11,10 +11,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DollarSign, CreditCard, Activity, Zap } from 'lucide-react';
 import { motion } from "framer-motion";
 import { Line, LineChart, PieChart, Pie, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis, Legend } from 'recharts';
+import { useNavigate } from 'react-router-dom';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444'];
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [upiId, setUpiId] = useState("");
   const [balance, setBalance] = useState(0);
@@ -27,33 +29,67 @@ const Dashboard = () => {
   const handleSignOut = async () => {
     try {
       await signOut(auth);
+      // Clear all user data from state
       setUser(null);
       setUpiId("");
+      setBalance(0);
+      setTransactions([]);
+      setTransactionData([]);
+      setSpendingData([]);
+      setTotalSpending(0);
+      // Navigate to home page
+      navigate("/");
     } catch (error) {
       console.error("Sign-Out Error:", error);
     }
   };
 
   useEffect(() => {
-    const checkUser = async () => {
-      const currentUser = auth.currentUser;
+    // Set up auth state listener
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
-        const userRef = doc(db, "users", currentUser.uid);
-        const userDoc = await getDoc(userRef);
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          setUpiId(userData.upiId);
-          setBalance(userData.balance || 10000); // Default balance if not set
-          
-          // Fetch transactions
-          await fetchTransactions(userData.upiId);
+        try {
+          const userRef = doc(db, "users", currentUser.uid);
+          const userDoc = await getDoc(userRef);
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            
+            // If accountType doesn't exist, default to 'user' for backwards compatibility
+            const accountType = userData.accountType || 'user';
+            
+            // Redirect business users to business dashboard
+            if (accountType === 'business') {
+              navigate("/business-dashboard");
+              return;
+            }
+            
+            setUpiId(userData.upiId);
+            setBalance(userData.balance || 10000); // Default balance if not set
+            
+            // Fetch transactions
+            await fetchTransactions(userData.upiId);
+          }
+        } catch (error) {
+          console.error("Error fetching user data:", error);
         }
+      } else {
+        // User is signed out, clear all data and redirect
+        setUser(null);
+        setUpiId("");
+        setBalance(0);
+        setTransactions([]);
+        setTransactionData([]);
+        setSpendingData([]);
+        setTotalSpending(0);
+        navigate("/");
       }
       setLoading(false);
-    };
-    checkUser();
-  }, []);
+    });
+
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
+  }, [navigate]);
 
   const fetchTransactions = async (userUpiId) => {
     try {
