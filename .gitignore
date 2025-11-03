@@ -1,0 +1,28 @@
+# Python virtual environments and common python ignores
+.venv/
+venv/
+env/
+python_scripts/.venv/
+__pycache__/
+*.py[cod]
+# Byte-compiled / optimized / DLL files
+*.so
+
+# Distribution / packaging
+build/
+dist/
+eggs/
+*.egg-info/
+parts/
+sdist/
+develop-eggs/
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+.pytest_cache/
+.tox/
+coverage.xml
+htmlcov/
