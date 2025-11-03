@@ -43,7 +43,7 @@ import {
         const randomSuffix = Math.floor(1000 + Math.random() * 9000);
         const baseName = name.split(" ")[0].toLowerCase();
         
-        return `${baseName}${randomSuffix}@yesbank`;
+        return `${baseName}${randomSuffix}@`;
     };
     const data= [
     {
