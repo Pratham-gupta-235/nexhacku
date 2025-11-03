@@ -17,14 +17,22 @@ app.add_middleware(
 )
 
 # Load the saved model
+import os
 model_path = "best_rf_model (1).pkl"
 model = None
 load_error = None
+
+# Get the directory where app.py is located
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+full_model_path = os.path.join(BASE_DIR, model_path)
+
 try:
-    with open(model_path, "rb") as file:
+    with open(full_model_path, "rb") as file:
         model = pickle.load(file)
+    print(f"✅ Model loaded successfully from {full_model_path}")
 except Exception as e:
     load_error = str(e)
+    print(f"❌ Failed to load model: {load_error}")
 
 
 class Features(BaseModel):
@@ -44,9 +52,14 @@ def predict(payload: Features):
 
     try:
         features = np.array(payload.features).reshape(1, -1)
+        print(f"📊 Received features: {features}")
         prediction = model.predict(features)
+        print(f"✅ Prediction: {prediction.tolist()}")
         return {"prediction": prediction.tolist()}
     except Exception as e:
+        print(f"❌ Prediction error: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 
