@@ -2,47 +2,54 @@ import React, { useState } from "react";
 import axios from "axios";
 
 const PredictForm = () => {
-  const [csvFile, setCsvFile] = useState(null);
+  const [jsonFile, setJsonFile] = useState(null);
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
-    if (file && file.type === "text/csv") {
-      setCsvFile(file);
+    if (file && file.type === "application/json") {
+      setJsonFile(file);
       setError(null);
     } else {
-      setError("Please upload a valid CSV file");
-      setCsvFile(null);
+      setError("Please upload a valid JSON file");
+      setJsonFile(null);
     }
   };
 
-  const parseCSV = (text) => {
-    const lines = text.trim().split("\n");
-    const data = [];
-    
-    lines.forEach((line, index) => {
-      // Skip empty lines
-      if (!line.trim()) return;
+  const parseJSON = (text) => {
+    try {
+      const data = JSON.parse(text);
       
-      // Parse CSV line (handle both comma and quoted values)
-      const values = line.split(",").map((val) => parseFloat(val.trim()));
-      
-      // Validate that we have 22 features
-      if (values.length === 22 && !values.some(isNaN)) {
-        data.push(values);
-      } else if (index > 0) { // Skip header warning if first line
-        console.warn(`Line ${index + 1} has invalid data or incorrect feature count`);
+      // Handle single transaction object with features array
+      if (data.features && Array.isArray(data.features)) {
+        // Check if it's a single transaction
+        if (data.features.every(item => typeof item === 'number')) {
+          return [data.features];
+        }
+        // If features is an array of arrays
+        return data.features;
       }
-    });
-    
-    return data;
+      
+      // Handle array of transaction objects
+      if (Array.isArray(data)) {
+        return data.map(item => {
+          if (Array.isArray(item)) return item;
+          if (item.features && Array.isArray(item.features)) return item.features;
+          return Object.values(item);
+        });
+      }
+      
+      throw new Error("Invalid JSON format");
+    } catch (err) {
+      throw new Error(`JSON parsing error: ${err.message}`);
+    }
   };
 
   const handlePredict = async () => {
-    if (!csvFile) {
-      setError("Please select a CSV file first");
+    if (!jsonFile) {
+      setError("Please select a JSON file first");
       return;
     }
 
@@ -51,11 +58,19 @@ const PredictForm = () => {
     setResults([]);
 
     try {
-      const text = await csvFile.text();
-      const featureRows = parseCSV(text);
+      const text = await jsonFile.text();
+      const featureRows = parseJSON(text);
 
       if (featureRows.length === 0) {
-        setError("No valid feature rows found in CSV. Each row should have exactly 22 numerical values.");
+        setError("No valid feature rows found in JSON. Each transaction should have exactly 22 numerical values.");
+        setLoading(false);
+        return;
+      }
+
+      // Validate feature count
+      const invalidRows = featureRows.filter(row => row.length !== 22);
+      if (invalidRows.length > 0) {
+        setError(`Found ${invalidRows.length} row(s) with invalid feature count. Each row must have exactly 22 features.`);
         setLoading(false);
         return;
       }
@@ -92,20 +107,26 @@ const PredictForm = () => {
   };
 
   const downloadResults = () => {
-    const csvContent = [
-      "Row,Prediction,Status",
-      ...results.map((r) =>
-        `${r.row},${r.success ? r.prediction : "Error"},${
-          r.success ? "Success" : r.error
-        }`
-      ),
-    ].join("\n");
+    const jsonResults = {
+      total: results.length,
+      fraudulent: results.filter((r) => r.success && r.prediction === 1).length,
+      legitimate: results.filter((r) => r.success && r.prediction === 0).length,
+      errors: results.filter((r) => !r.success).length,
+      predictions: results.map((r) => ({
+        row: r.row,
+        prediction: r.success ? (r.prediction === 1 ? "FRAUD" : "LEGITIMATE") : "ERROR",
+        prediction_value: r.success ? r.prediction : null,
+        status: r.success ? "Success" : r.error,
+      })),
+    };
 
-    const blob = new Blob([csvContent], { type: "text/csv" });
+    const blob = new Blob([JSON.stringify(jsonResults, null, 2)], {
+      type: "application/json",
+    });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = "fraud_predictions.csv";
+    link.download = "fraud_predictions.json";
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -115,21 +136,44 @@ const PredictForm = () => {
       <h2>Fraud Detection - Batch Prediction</h2>
       
       <div style={{ marginBottom: "20px", padding: "15px", backgroundColor: "#f0f8ff", borderRadius: "8px" }}>
-        <h3>CSV Format Requirements:</h3>
-        <ul>
-          <li>Each row should contain exactly <strong>22 numerical values</strong></li>
-          <li>Values should be comma-separated</li>
+        <h3>JSON Format Requirements:</h3>
+        <p><strong>Option 1 - Single Transaction:</strong></p>
+        <pre style={{ backgroundColor: "#f5f5f5", padding: "10px", borderRadius: "4px", fontSize: "12px" }}>
+{`{
+  "features": [0.008, 0.0, 1.0, 0.0, 1.0, 0.189, 
+               0.290, 0.875, 0.033, 0.0, 0.0, 0.0, 
+               0.556, 0.158, 0.0, 0.0, 0.0, 0.0, 
+               0.0, 1.0, 0.0, 0.0]
+}`}
+        </pre>
+        
+        <p><strong>Option 2 - Multiple Transactions:</strong></p>
+        <pre style={{ backgroundColor: "#f5f5f5", padding: "10px", borderRadius: "4px", fontSize: "12px" }}>
+{`{
+  "features": [
+    [0.008, 0.0, 1.0, ..., 0.0],
+    [0.55, 1.0, 0.60, ..., 1.0]
+  ]
+}`}
+        </pre>
+        
+        <p><strong>Option 3 - Array Format:</strong></p>
+        <pre style={{ backgroundColor: "#f5f5f5", padding: "10px", borderRadius: "4px", fontSize: "12px" }}>
+{`[
+  {"features": [0.008, 0.0, 1.0, ..., 0.0]},
+  {"features": [0.55, 1.0, 0.60, ..., 1.0]}
+]`}
+        </pre>
+        
+        <ul style={{ marginTop: "10px" }}>
+          <li>Each transaction must have exactly <strong>22 numerical values</strong></li>
           <li>Values should be normalized between 0 and 1</li>
-          <li>No header row (or it will be skipped if first line has non-numeric data)</li>
         </ul>
-        <p style={{ fontSize: "12px", color: "#666" }}>
-          Example: 0.008,0.0,1.0,0.0,1.0,0.189,0.290,0.875,0.033,0.0,0.0,0.0,0.556,0.158,0.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0
-        </p>
       </div>
 
       <div style={{ marginBottom: "20px" }}>
         <label
-          htmlFor="csv-upload"
+          htmlFor="json-upload"
           style={{
             display: "inline-block",
             padding: "10px 20px",
@@ -140,12 +184,12 @@ const PredictForm = () => {
             fontSize: "16px",
           }}
         >
-          {csvFile ? csvFile.name : "Choose CSV File"}
+          {jsonFile ? jsonFile.name : "Choose JSON File"}
         </label>
         <input
-          id="csv-upload"
+          id="json-upload"
           type="file"
-          accept=".csv"
+          accept=".json,application/json"
           onChange={handleFileChange}
           style={{ display: "none" }}
         />
@@ -153,7 +197,7 @@ const PredictForm = () => {
 
       <button
         onClick={handlePredict}
-        disabled={!csvFile || loading}
+        disabled={!jsonFile || loading}
         style={{
           padding: "12px 24px",
           backgroundColor: loading ? "#ccc" : "#2196F3",
@@ -181,7 +225,7 @@ const PredictForm = () => {
             cursor: "pointer",
           }}
         >
-          Download Results
+          Download Results (JSON)
         </button>
       )}
 
@@ -201,7 +245,7 @@ const PredictForm = () => {
 
       {results.length > 0 && (
         <div style={{ marginTop: "30px" }}>
-          <h3>Prediction Results ({results.length} rows)</h3>
+          <h3>Prediction Results ({results.length} transactions)</h3>
           <div
             style={{
               backgroundColor: "#f5f5f5",
