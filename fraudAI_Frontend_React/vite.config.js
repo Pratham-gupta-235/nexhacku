@@ -5,6 +5,14 @@ import path from 'path'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  server: {
+    headers: {
+      // Loosen COOP/COEP to allow OAuth popups to close without warnings
+      'Cross-Origin-Opener-Policy': 'unsafe-none',
+      'Cross-Origin-Embedder-Policy': 'unsafe-none',
+      'Cross-Origin-Resource-Policy': 'cross-origin',
+    },
+  },
   resolve: {
     alias: {
       // Alias to browser-compatible modules
