@@ -10,7 +10,7 @@ import {
   History, 
   FileText, 
   Users, 
-  Settings, 
+  BrainCircuit, 
   HelpCircle as Help, 
   CreditCard, 
   Search, 
@@ -25,7 +25,7 @@ export default function SidebarContent() {
     { icon: History, label: "Transactions", path: "/transactions" },
     { icon: FileText, label: "Statements", path: "/statements" },
     { icon: Users, label: "Beneficiaries", path: "/beneficiaries" },
-    { icon: Settings, label: "Settings", path: "/settings" },
+    { icon: BrainCircuit, label: "Predict", path: "/predict" },
     { icon: Help, label: "Help & Support", path: "/help-support" },
   ];
 

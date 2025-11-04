@@ -16,6 +16,7 @@ const RecentTransactions = () => {
   const [user, setUser] = useState(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [transactions, setTransactions] = useState([]) // State to hold transactions
+  const [loading, setLoading] = useState(true) // Loading state
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -33,27 +34,38 @@ const RecentTransactions = () => {
       }
     }
 
-    const fetchTransactions = async () => {
-      if (!user) return // Ensure user is defined
+    fetchUserData()
+  }, []) // Only run once on mount
 
-      const transactionsCollection = collection(db, "transactions")
-      const transactionsQuery = query(transactionsCollection, where("senderUPI", "==", user.upiId)) // Fetch transactions for the current user's UPI ID
-      const transactionSnapshot = await getDocs(transactionsQuery)
-      const transactionList = transactionSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }))
-      setTransactions(transactionList)
+  useEffect(() => {
+    const fetchTransactions = async () => {
+      if (!user || !user.upiId) return // Ensure user and upiId are defined
+
+      try {
+        setLoading(true)
+        const transactionsCollection = collection(db, "transactions")
+        const transactionsQuery = query(transactionsCollection, where("senderUPI", "==", user.upiId)) // Fetch transactions for the current user's UPI ID
+        const transactionSnapshot = await getDocs(transactionsQuery)
+        const transactionList = transactionSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }))
+        setTransactions(transactionList)
+      } catch (error) {
+        console.error("Error fetching transactions:", error)
+      } finally {
+        setLoading(false)
+      }
     }
 
-    fetchUserData().then(fetchTransactions) // Fetch user data and then transactions
+    fetchTransactions()
   }, [user]) // Dependency on user
 
   const filteredTransactions = transactions.filter(
     (transaction) =>
-      transaction.recipientUPI.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      transaction.amount.toString().includes(searchTerm) ||
-      transaction.remarks.toLowerCase().includes(searchTerm.toLowerCase())
+      (transaction.recipientUPI?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (transaction.amount?.toString().includes(searchTerm)) ||
+      (transaction.remarks?.toLowerCase().includes(searchTerm.toLowerCase()))
   )
 
   return (
@@ -91,38 +103,55 @@ const RecentTransactions = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {filteredTransactions.map((transaction) => (
-                  <Card key={transaction.id} className="bg-gray-700 border-gray-600 hover:bg-gray-600 transition-colors duration-200">
-                    <CardContent className="flex items-center justify-between p-4">
-                      <div className="flex items-center space-x-4">
-                        <div className={`p-2 rounded-full ${transaction.type === 'incoming' ? 'bg-green-500' : 'bg-red-500'}`}>
-                          {transaction.type === 'incoming' ? <ArrowDownLeft className="h-5 w-5 text-white" /> : <ArrowUpRight className="h-5 w-5 text-white" />}
+                {loading ? (
+                  <div className="text-center py-8">
+                    <p className="text-gray-400">Loading transactions...</p>
+                  </div>
+                ) : filteredTransactions.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-gray-400">No transactions found</p>
+                  </div>
+                ) : (
+                  filteredTransactions.map((transaction) => (
+                    <Card key={transaction.id} className="bg-gray-700 border-gray-600 hover:bg-gray-600 transition-colors duration-200">
+                      <CardContent className="flex items-center justify-between p-4">
+                        <div className="flex items-center space-x-4">
+                          <div className={`p-2 rounded-full ${transaction.type === 'incoming' ? 'bg-green-500' : 'bg-red-500'}`}>
+                            {transaction.type === 'incoming' ? <ArrowDownLeft className="h-5 w-5 text-white" /> : <ArrowUpRight className="h-5 w-5 text-white" />}
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-100">{transaction.recipientUPI || 'Unknown'}</p>
+                            <p className="text-sm text-gray-400">
+                              {transaction.createdAt?.seconds 
+                                ? new Date(transaction.createdAt.seconds * 1000).toLocaleDateString()
+                                : 'Date unknown'}
+                            </p>
+                            {transaction.remarks && (
+                              <p className="text-xs text-gray-500 mt-1">{transaction.remarks}</p>
+                            )}
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-medium text-gray-100">{transaction.recipientUPI}</p>
-                          <p className="text-sm text-gray-400">{new Date(transaction.createdAt.seconds * 1000).toLocaleDateString()}</p>
+                        <div className="text-right">
+                          <p className={`text-lg font-semibold ${transaction.type === 'incoming' ? 'text-green-400' : 'text-red-400'}`}>
+                            {transaction.type === 'incoming' ? '+' : '-'}₹{transaction.amount?.toFixed(2) || '0.00'}
+                          </p>
+                          <Badge
+                            variant={
+                              transaction.status === "Completed"
+                                ? "success"
+                                : transaction.status === "Pending"
+                                ? "warning"
+                                : "destructive"
+                            }
+                            className="mt-1"
+                          >
+                            {transaction.status || 'Unknown'}
+                          </Badge>
                         </div>
-                      </div>
-                      <div className="text-right">
-                        <p className={`text-lg font-semibold ${transaction.type === 'incoming' ? 'text-green-400' : 'text-red-400'}`}>
-                          {transaction.type === 'incoming' ? '+' : '-'}₹{transaction.amount.toFixed(2)}
-                        </p>
-                        <Badge
-                          variant={
-                            transaction.status === "Completed"
-                              ? "success"
-                              : transaction.status === "Pending"
-                              ? "warning"
-                              : "destructive"
-                          }
-                          className="mt-1"
-                        >
-                          {transaction.status}
-                        </Badge>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
               </div>
             </CardContent>
           </Card>
