@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { auth, db } from "./firebase.js";
 import { signOut, onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
+import { doc, getDoc, collection, query, where, getDocs, onSnapshot } from "firebase/firestore";
 import Header from "./Header.jsx";
 import SidebarContent from "./SidebarContent";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -16,6 +16,13 @@ const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'
 
 const BusinessDashboard = () => {
   const navigate = useNavigate();
+  // Demo mode can be enabled via URL (?demo=1), hash (#demo), or localStorage('intellisecure_demo'==='1')
+  const initialDemo = (
+    new URLSearchParams(window.location.search).get("demo") === "1" ||
+    window.location.hash.toLowerCase().includes("demo") ||
+    (typeof window !== 'undefined' && localStorage.getItem('intellisecure_demo') === '1')
+  );
+  const [demoMode, setDemoMode] = useState(initialDemo);
   const [user, setUser] = useState(null);
   const [businessData, setBusinessData] = useState(null);
   const [transactions, setTransactions] = useState([]);
@@ -41,7 +48,54 @@ const BusinessDashboard = () => {
     }
   };
 
+  // Helper to inject demo data
+  const injectDemoData = () => {
+    const demoUser = {
+      uid: "demo-user-1",
+      displayName: "IntelliSecure Biz",
+      photoURL: "",
+      email: "demo@intellisecure.ai",
+    };
+    const demoBiz = {
+      businessName: "IntelliSecure Cafe",
+      upiId: "intellisecurebiz@yesbank",
+      accountType: "business",
+    };
+    const now = Date.now();
+    const day = 24 * 60 * 60 * 1000;
+    const senders = [
+      "alice@okaxis",
+      "bob@okhdfc",
+      "chris@ybl",
+      "diana@oksbi",
+      "eric@okicici",
+    ];
+    const remarksList = ["groceries", "rent", "utilities", "entertainment", "other"];
+    const amounts = [499, 1299, 259, 899, 159, 2199, 349, 799];
+    const offsets = [1, 3, 7, 15, 30, 45, 60, 90];
+    const demoTx = offsets.map((d, i) => ({
+      id: `demo-${i}`,
+      amount: amounts[i % amounts.length],
+      recipientUPI: demoBiz.upiId,
+      senderUPI: senders[i % senders.length],
+      remarks: remarksList[i % remarksList.length],
+      status: "Completed",
+      createdAt: { seconds: Math.floor((now - d * day) / 1000) },
+    }));
+
+    setUser(demoUser);
+    setBusinessData(demoBiz);
+    setTransactions(demoTx);
+    setLoading(false);
+  };
+
   useEffect(() => {
+    // Demo: inject hardcoded data and skip Firestore entirely
+    if (demoMode) {
+      injectDemoData();
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
@@ -59,7 +113,8 @@ const BusinessDashboard = () => {
             }
             
             setBusinessData(userData);
-            await fetchBusinessTransactions(userData.upiId);
+            // Realtime subscription will handle updates
+            subscribeToBusinessTransactions(userData.upiId);
           }
         } catch (error) {
           console.error("Error fetching business data:", error);
@@ -78,33 +133,52 @@ const BusinessDashboard = () => {
     });
 
     return () => unsubscribe();
-  }, [navigate]);
+  }, [navigate, demoMode]);
 
-  const fetchBusinessTransactions = async (businessUpiId) => {
+  const enableDemo = () => {
     try {
-      // Fetch transactions where business is the recipient (receiving payments)
-      const transactionsRef = collection(db, "transactions");
-      const q = query(transactionsRef, where("recipientUPI", "==", businessUpiId));
-      const querySnapshot = await getDocs(q);
-      
-      const fetchedTransactions = [];
-      const customerSet = new Set();
-      
-      querySnapshot.forEach((doc) => {
-        const transaction = {
-          id: doc.id,
-          ...doc.data()
-        };
-        fetchedTransactions.push(transaction);
-        customerSet.add(transaction.senderUPI);
+      localStorage.setItem('intellisecure_demo', '1');
+    } catch (_) {}
+    const url = new URL(window.location.href);
+    url.searchParams.set('demo', '1');
+    window.history.replaceState({}, '', url.toString());
+    setDemoMode(true);
+  };
+
+  // Realtime subscription: listen to common recipient field variants and merge
+  const subscribeToBusinessTransactions = (businessUpiId) => {
+    if (!businessUpiId) return () => {};
+
+    const txRef = collection(db, "transactions");
+    const q1 = query(txRef, where("recipientUPI", "==", businessUpiId));
+    const q2 = query(txRef, where("recipientUpiId", "==", businessUpiId));
+
+    const txMap = new Map();
+
+    const applySnapshot = (snap) => {
+      snap.docChanges().forEach((change) => {
+        const data = { id: change.doc.id, ...change.doc.data() };
+        if (change.type === 'removed') {
+          txMap.delete(change.doc.id);
+        } else {
+          txMap.set(change.doc.id, data);
+        }
       });
-      
-      setTransactions(fetchedTransactions);
-      setTotalCustomers(customerSet.size);
-      processBusinessData(fetchedTransactions);
-    } catch (error) {
-      console.error("Error fetching business transactions:", error);
-    }
+      const merged = Array.from(txMap.values());
+      // Sort descending by createdAt if available
+      merged.sort((a, b) => {
+        const at = a?.createdAt?.seconds || 0;
+        const bt = b?.createdAt?.seconds || 0;
+        return bt - at;
+      });
+      setTransactions(merged);
+      // Update unique customers quickly
+      const customers = new Set(merged.map((t) => t.senderUPI).filter(Boolean));
+      setTotalCustomers(customers.size);
+    };
+
+    const unsubs = [onSnapshot(q1, applySnapshot), onSnapshot(q2, applySnapshot)];
+    return () => unsubs.forEach((u) => u && u());
   };
 
   const processBusinessData = (transactions) => {
@@ -154,6 +228,11 @@ const BusinessDashboard = () => {
 
     setProductData(productArray.length > 0 ? productArray : [{ name: 'No sales', value: 1 }]);
   };
+
+  // Recompute KPIs and charts whenever transactions change
+  useEffect(() => {
+    processBusinessData(transactions);
+  }, [transactions]);
 
   const RevenueChart = () => (
     <ResponsiveContainer width="100%" height={300}>
@@ -258,14 +337,31 @@ const BusinessDashboard = () => {
                   <p className="text-sm text-gray-400">Business Account • UPI ID: {businessData?.upiId}</p>
                 </div>
               </div>
-              <Button
-                onClick={handleSignOut}
-                variant="destructive"
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 transition-colors duration-200"
-              >
-                Sign Out
-              </Button>
+              <div className="flex items-center gap-3">
+                {!demoMode && (
+                  <Button
+                    onClick={enableDemo}
+                    variant="secondary"
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white transition-colors duration-200"
+                  >
+                    Enable Demo
+                  </Button>
+                )}
+                <Button
+                  onClick={handleSignOut}
+                  variant="destructive"
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 transition-colors duration-200"
+                >
+                  Sign Out
+                </Button>
+              </div>
             </motion.div>
+
+            {/* {demoMode && (
+              <div className="mb-4 p-3 rounded-md border border-blue-500/40 bg-blue-500/10 text-blue-300 text-sm">
+                Demo Mode is active. Showing mock transactions and KPIs for IntelliSecure Cafe.
+              </div>
+            )} */}
 
             {/* Business Stats Cards */}
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">

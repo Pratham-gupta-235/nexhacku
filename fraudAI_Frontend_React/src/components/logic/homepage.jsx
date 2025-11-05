@@ -5105,7 +5105,7 @@ import {
                 const demoMap = {
                     "grandygupta@okaxis": "valid",
                     "aryan@yesbank": "fraud",
-                    "pratham@yesbank": "invalid",
+                    "fake@yesbank": "invalid",
                 };
                 const normalized = recipientUpiId.trim().toLowerCase();
                 if (demoMap[normalized]) {
